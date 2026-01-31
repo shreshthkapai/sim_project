@@ -1,0 +1,58 @@
+"""
+Configuration
+"""
+
+SEARCH_HISTORY_FILE = 'search_history.json'
+CHECKPOINT_DIR = './'
+FINAL_CHECKPOINT = 'checkpoint_FINAL.pkl'
+
+OLLAMA_API = "http://localhost:11434/api/generate"
+MODEL = "llama3.1:8b"
+
+CATEGORIES = [
+    "Fashion", "Travel", "Daily_Life", "Life_Transitions", "Location",
+    "Work_Career", "Entertainment", "Technology", "News_Politics"
+]
+
+BATCH_SIZE = 3
+MAX_RETRIES = 2
+REQUEST_TIMEOUT = 60
+
+NUM_WALKS = 30
+WALK_LENGTH = 4
+LEARNING_RATE = 0.1
+
+# Feature toggles
+USE_COHERENCE = True
+USE_EDGE_TYPES = True
+USE_COMPETITION = True
+
+# Coherence
+COHERENCE_SHARED_CATEGORIES_WEIGHT = 0.4
+COHERENCE_CO_OCCURRENCE_WEIGHT = 0.4
+COHERENCE_TEMPORAL_WEIGHT = 0.2
+
+# Edge types
+EDGE_TYPE_CAUSAL_WINDOW_HOURS = 24
+EDGE_TYPE_SIMULTANEOUS_WINDOW_HOURS = 1
+EDGE_TYPE_MIN_SAMPLES = 3
+
+# Competition
+COMPETITION_STRENGTH = 0.05
+
+# Temporal decay
+ENTITY_EDGE_DECAY_RATE = 0.0005  
+APPLY_DECAY_EVERY = 100          
+
+# Adaptive thresholds
+TRANSITION_WINDOW_SIZE = 25
+SURPRISE_THRESHOLD_SIGMA = 0.8
+MAX_GAP_DAYS_MULTIPLIER = 1.0
+MIN_CLUSTER_SIZE_SIGMA = 0.5
+
+# Checkpoints & Visualization
+CHECKPOINT_EVERY = 500
+SMOOTHING_WINDOW = 500
+TOP_N_ENTITIES = 10
+TOP_N_EVENTS = 5
+FIGURE_DPI = 300

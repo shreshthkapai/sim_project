@@ -1,0 +1,63 @@
+
+======================================================================
+USER IDENTITY NARRATIVE
+7.0-Year Behavioral Analysis
+======================================================================
+
+OVERVIEW:
+Analyzed 42,635 searches over 7.0 years
+Detected 81 behavioral transitions
+Identified 6 distinct life events
+Found 10 behavioral sub-personas
+Model learning: 1.4% surprise reduction over time
+
+ADAPTIVE PARAMETERS USED:
+Surprise threshold: 5.120 (mean + 0.8σ)
+Transition window: 25 searches
+Max cluster gap: 60 days (adaptive)
+Min cluster size: 7 transitions (adaptive)
+
+LIFE TRAJECTORY:
+
+The search history reveals major transitional periods:
+
+1. April 2024 (55 days, 0.6 transitions/day)
+   Dominant theme: Travel
+   → Extended travel or exploration phase
+
+2. April 2018 (38 days, 0.4 transitions/day)
+   Dominant theme: Entertainment
+
+3. June 2022 (26 days, 0.4 transitions/day)
+   Dominant theme: Work_Career
+   → Career-focused period, possibly skill development or job transition
+
+4. April 2019 (2 days, 4.5 transitions/day)
+   Dominant theme: Life_Transitions
+
+5. December 2021 (0 days, 5.0 transitions/day)
+   Dominant theme: Entertainment
+
+BEHAVIORAL PATTERNS:
+
+Interest composition:
+  • Work_Career: 24.0% of entity connections
+  • Technology: 20.6% of entity connections
+  • Location: 12.0% of entity connections
+
+The knowledge graph shows a relatively balanced profile with
+primary focus on Work_Career and Technology.
+
+Behavioral clustering identified 10 distinct sub-personas,
+suggesting a multi-faceted identity spanning professional, personal, and
+location-based contexts.
+
+----------------------------------------------------------------------
+MODEL PERFORMANCE:
+----------------------------------------------------------------------
+
+Graph structure: 32,011 nodes, 195,778 edges
+Edge density: 6.12 edges/node
+Prediction accuracy improved 1.4% from early to late searches
+Transition detection rate: 0.2% of searches
+======================================================================
