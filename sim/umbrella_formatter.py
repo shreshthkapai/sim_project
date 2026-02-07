@@ -48,6 +48,8 @@ class UmbrellaFormatter:
         
         # Get top categories
         top_cats = self.readout.get_category_distribution(top_k=top_categories)
+        if isinstance(top_cats, dict):
+            top_cats = top_cats.items()
         
         for category, cat_prob in top_cats:
             # Skip if below threshold
@@ -101,6 +103,8 @@ class UmbrellaFormatter:
         
         # Get top categories
         top_cats = self.readout.get_category_distribution(top_k=top_categories)
+        if isinstance(top_cats, dict):
+            top_cats = top_cats.items()
         
         for category, cat_prob in top_cats:
             # Skip if below threshold
@@ -142,6 +146,8 @@ class UmbrellaFormatter:
             Compact string
         """
         top_cats = self.readout.get_category_distribution(top_k=top_categories)
+        if isinstance(top_cats, dict):
+            top_cats = top_cats.items()
         
         parts = [f"{cat}({prob:.2f})" for cat, prob in top_cats]
         return " | ".join(parts)

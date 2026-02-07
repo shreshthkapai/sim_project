@@ -302,39 +302,3 @@ OUTPUT FORMAT (JSON only, no explanation):
         strength = base_strength * weight_multiplier
         
         return strength
-
-
-# Example usage
-if __name__ == "__main__":
-    from graph_setup import FrozenGraphLoader
-    from state import SimulationState
-    
-    # Load graph
-    loader = FrozenGraphLoader("checkpoint_83.kg")
-    
-    # Create state
-    state = SimulationState(loader.num_nodes)
-    
-    # Create injector
-    injector = QueryInjector(loader)
-    
-    # Test queries
-    test_queries = [
-        "What should I learn about Tokyo?",
-        "Best tech stack for web development",
-        "How to plan a trip to Paris?"
-    ]
-    
-    for query in test_queries:
-        result = injector.inject_query(query, state)
-        print(f"\nResult: {result}")
-        
-        # Show which nodes were activated
-        active_indices = [i for i, s in enumerate(state.s) if s > 0]
-        print(f"Active nodes: {len(active_indices)}")
-        for idx in active_indices[:5]:  # Show first 5
-            node_id = loader.idx_to_node[idx]
-            print(f"  {node_id}: s={state.s[idx]:.3f}")
-        
-        # Reset for next query
-        state.reset()

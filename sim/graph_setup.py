@@ -38,8 +38,10 @@ class FrozenGraphLoader:
             checkpoint = pickle.load(f)
         
         # Extract knowledge graph (read-only)
+        # NOTE: We keep a detached frozen copy for simulation to prevent mutations
+        # elsewhere (e.g., training updates) from changing node/edge counts.
         self.kg = checkpoint['kg']
-        self.graph = self.kg.G  # NetworkX DiGraph
+        self.graph = self.kg.G.copy()  # NetworkX DiGraph snapshot
         
         # Freeze the graph - mark as read-only
         self._freeze_graph()
@@ -70,6 +72,7 @@ class FrozenGraphLoader:
         # Add a flag to prevent accidental modifications
         self.graph.graph['frozen'] = True
         self.graph.graph['frozen_timestamp'] = str(Path(self.checkpoint_path).stat().st_mtime)
+        self.graph = nx.freeze(self.graph)
     
     def _get_user_node(self) -> str:
         """Find the USER node."""

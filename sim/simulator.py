@@ -202,7 +202,7 @@ class Simulator:
 # Example usage
 if __name__ == "__main__":
     # Initialize simulator
-    sim = Simulator("checkpoint_83.kg", verbose=True)
+    sim = Simulator(r"C:\Users\shres\Desktop\simulation\models\checkpoint_FINAL.pkl", verbose=True)
     
     # Single query
     print("\n" + "="*60)
