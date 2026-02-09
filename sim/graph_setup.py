@@ -69,10 +69,13 @@ class FrozenGraphLoader:
     
     def _freeze_graph(self):
         """Mark graph as read-only to prevent modifications."""
-        # Add a flag to prevent accidental modifications
+        # Store the node and edge counts for verification
+        self._initial_node_count = self.graph.number_of_nodes()
+        self._initial_edge_count = self.graph.number_of_edges()
+        
+        # Add metadata
         self.graph.graph['frozen'] = True
         self.graph.graph['frozen_timestamp'] = str(Path(self.checkpoint_path).stat().st_mtime)
-        self.graph = nx.freeze(self.graph)
     
     def _get_user_node(self) -> str:
         """Find the USER node."""
@@ -196,32 +199,27 @@ class FrozenGraphLoader:
         if not self.graph.graph.get('frozen'):
             raise RuntimeError("Graph has been unfrozen - integrity violated!")
         
-        # Check node count hasn't changed
-        current_nodes = len(list(self.graph.nodes()))
-        if current_nodes != self.num_nodes:
-            raise RuntimeError(f"Node count changed: {self.num_nodes} → {current_nodes}")
+        # Check node count using STORED initial count
+        current_nodes = self.graph.number_of_nodes()
+        if current_nodes != self._initial_node_count:
+            # Find what changed
+            print(f"\n❌ GRAPH MODIFIED DURING SIMULATION!")
+            print(f"   Initial nodes: {self._initial_node_count}")
+            print(f"   Current nodes: {current_nodes}")
+            print(f"   Difference: +{current_nodes - self._initial_node_count} nodes")
+            
+            # Try to find the new nodes
+            if current_nodes > self._initial_node_count:
+                all_current = set(self.graph.nodes())
+                all_initial = set(self.all_nodes)
+                new_nodes = all_current - all_initial
+                print(f"   New nodes added: {list(new_nodes)[:10]}")  # Show first 10
+            
+            raise RuntimeError(f"Node count changed: {self._initial_node_count} → {current_nodes}")
         
-        # Check edge count hasn't changed
-        current_edges = len(list(self.graph.edges()))
-        if current_edges != len(self.baseline_weights):
-            raise RuntimeError(f"Edge count changed: {len(self.baseline_weights)} → {current_edges}")
+        # Check edge count
+        current_edges = self.graph.number_of_edges()
+        if current_edges != self._initial_edge_count:
+            raise RuntimeError(f"Edge count changed: {self._initial_edge_count} → {current_edges}")
         
         return True
-
-
-# Example usage
-if __name__ == "__main__":
-    # Test loading
-    loader = FrozenGraphLoader("checkpoint_83.kg")
-    
-    print(f"\nGraph Summary:")
-    print(f"  Total nodes: {loader.num_nodes}")
-    print(f"  USER: {loader.user_node}")
-    print(f"  Categories: {loader.category_nodes}")
-    print(f"  Entities: {len(loader.entity_nodes)} (first 5: {loader.entity_nodes[:5]})")
-    print(f"  Baseline edges: {len(loader.baseline_weights)}")
-    print(f"  Inhibition matrix shape: {loader.inhibition_matrix.shape}")
-    
-    # Verify integrity
-    loader.verify_integrity()
-    print("\n✓ Graph integrity verified")

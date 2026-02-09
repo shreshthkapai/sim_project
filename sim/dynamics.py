@@ -7,6 +7,7 @@ Dynamics evolution (core simulation loop):
 - Stochastic noise via Euler-Maruyama
 - Windowed convergence checking
 - Operator splitting for numerical stability
+- ✅ NEW: Biological mechanisms (adaptation, synaptic depression, divisive normalization)
 """
 
 import numpy as np
@@ -20,7 +21,7 @@ from sim_utils import validate_activations
 
 
 class DynamicsEngine:
-    """Handles neural dynamics integration with RK45 + Hebbian updates."""
+    """Handles neural dynamics integration with RK45 + Hebbian updates + biological mechanisms."""
     
     def __init__(self, graph_loader, state, params: Optional[SimulationParameters] = None):
         self.graph = graph_loader
@@ -28,6 +29,17 @@ class DynamicsEngine:
         self.params = params if params is not None else SimulationParameters()
         
         self.entity_inhibition = self._build_entity_inhibition_matrix()
+        
+        # ✅ NEW: Biological state variables
+        self.adaptation = np.zeros(graph_loader.num_nodes, dtype=np.float32)  # Spike-rate adaptation
+        self.synaptic_resources = np.ones(graph_loader.num_nodes, dtype=np.float32)  # Synaptic depression (1=full, 0=depleted)
+        
+        # Biological time constants
+        self.tau_adapt = 0.2  # 200ms - adaptation builds up slowly
+        self.tau_recovery = 0.5  # 500ms - synaptic recovery
+        self.depletion_rate = 0.1  # How fast synapses deplete
+        self.gamma_adapt = 0.5  # Adaptation strength
+        self.divisive_strength = 0.05  # Divisive normalization strength
         
         self.trajectory_times = []
         self.trajectory_states = []
@@ -44,16 +56,17 @@ class DynamicsEngine:
         self.consecutive_passes = 0
         self.x_prev_macro = None
         
-        print("Dynamics engine initialized")
+        print("Dynamics engine initialized (with biological mechanisms)")
     
     def _build_entity_inhibition_matrix(self) -> np.ndarray:
         """Build entity inhibition using existing co-occurrence edges from graph."""
         n = self.graph.num_nodes
         I_entity = np.zeros((n, n), dtype=np.float32)
         
-        alpha = 0.7
-        baseline_same = 0.3
-        beta = 0.1
+        # ✅ STRONGER inhibition parameters (brain has ~4x stronger inhibition)
+        alpha = 0.8  # Increased from 0.7
+        baseline_same = 0.5  # Increased from 0.3
+        beta = 0.3  # Increased from 0.1 (3x stronger!)
         
         print(f"Building entity inhibition from graph co-occurrence edges...")
         
@@ -115,33 +128,85 @@ class DynamicsEngine:
         return self.state.s * modulation
     
     def _compute_derivative(self, t: float, x: np.ndarray) -> np.ndarray:
-        """Compute dx/dt using 5-term dynamics equation."""
+        """
+        Compute dx/dt using biologically-realistic dynamics.
+        
+        Includes:
+        - Excitation (weighted inputs with synaptic depression)
+        - Inhibition (competitive + divisive normalization)
+        - Decay (leak currents)
+        - Adaptation (spike-rate adaptation)
+        - External input
+        """
         n = self.graph.num_nodes
         dx = np.zeros(n, dtype=np.float32)
         
         s_t = self._compute_external_input(t)
         I_combined = self.graph.inhibition_matrix + self.entity_inhibition
         
+        # ✅ Compute total activity for divisive normalization
+        total_activity = np.sum(x)
+        
         for i in range(n):
+            # 1. EXCITATION (with synaptic depression)
             excitation = 0.0
             for j in self.graph.get_neighbors(i):
                 w_baseline = self.graph.get_baseline_weight(j, i)
                 w_eff = self.state.get_effective_weight(j, i, w_baseline)
-                excitation += w_eff * x[j]
+                
+                # ✅ Apply synaptic depression (depleted synapses are weaker)
+                w_depressed = w_eff * self.synaptic_resources[j]
+                excitation += w_depressed * x[j]
             
-            inhibition = np.dot(I_combined[i, :], x)
+            # 2. INHIBITION (competitive + divisive)
+            # Competitive inhibition (local, from specific inhibitory connections)
+            competitive_inhibition = np.dot(I_combined[i, :], x)
+            
+            # ✅ Divisive normalization (global activity suppression)
+            # When total network activity is high, suppress all neurons
+            divisive_inhibition = self.divisive_strength * x[i] * total_activity / (1.0 + total_activity)
+            
+            inhibition = competitive_inhibition + divisive_inhibition
+            
+            # 3. DECAY (leak current)
             decay = self.params.lambda_decay * x[i]
+            
+            # 4. ADAPTATION (spike-rate adaptation)
+            # ✅ This builds up with sustained activity and suppresses further firing
+            adaptation_current = self.gamma_adapt * self.adaptation[i]
+            
+            # 5. EXTERNAL INPUT
             external = s_t[i]
             
-            # Compute derivative
-            dx_i = excitation - inhibition - decay + external
+            # 6. COMBINED DYNAMICS
+            dx_i = excitation - inhibition - decay - adaptation_current + external
             
-            # CLIP to prevent overflow
-            dx_i = np.clip(dx_i, -100.0, 100.0)  # Reasonable bounds
+            # Clip to prevent numerical overflow
+            dx_i = np.clip(dx_i, -100.0, 100.0)
             
             dx[i] = dx_i
         
         return dx
+    
+    def _update_biological_variables(self, dt: float, x: np.ndarray):
+        """
+        Update slow biological variables (adaptation and synaptic resources).
+        These evolve on slower timescales than the main dynamics.
+        """
+        # ✅ Update adaptation (builds up with activity, decays slowly)
+        # d(adaptation)/dt = (x - adaptation) / tau_adapt
+        d_adaptation = (x - self.adaptation) / self.tau_adapt
+        self.adaptation += d_adaptation * dt
+        self.adaptation = np.maximum(self.adaptation, 0.0)  # Non-negative
+        
+        # ✅ Update synaptic resources (deplete when active, recover when inactive)
+        # d(resources)/dt = (1 - resources) / tau_recovery - depletion_rate * x * resources
+        recovery = (1.0 - self.synaptic_resources) / self.tau_recovery
+        depletion = self.depletion_rate * x * self.synaptic_resources
+        
+        d_resources = recovery - depletion
+        self.synaptic_resources += d_resources * dt
+        self.synaptic_resources = np.clip(self.synaptic_resources, 0.1, 1.0)  # Never fully depleted or over-saturated
     
     def _update_hebbian_from_trajectory(self, t_samples: np.ndarray, x_samples: np.ndarray):
         eta = self.params.eta
@@ -206,10 +271,11 @@ class DynamicsEngine:
     
     def run_simulation(self, macrostep_size: float = 0.1) -> Dict:
         print(f"\n{'='*60}")
-        print(f"RUNNING SIMULATION")
+        print(f"RUNNING SIMULATION (WITH BIOLOGICAL MECHANISMS)")
         print(f"{'='*60}")
         print(f"Parameters: {self.params.num_steps()} total microsteps")
         print(f"Macrostep size: {macrostep_size}s")
+        print(f"Biological features: adaptation, synaptic depression, divisive normalization")
         
         t = 0.0
         converged = False
@@ -242,6 +308,9 @@ class DynamicsEngine:
             x_new = np.maximum(x_new, 0.0)
             x_new = np.minimum(x_new, self.params.x_max)
             
+            # ✅ Update biological variables
+            self._update_biological_variables(dt_macro, x_new)
+            
             # Hebbian update
             t_samples = np.linspace(t, t_next, 20)
             x_samples = result.sol(t_samples)
@@ -273,9 +342,16 @@ class DynamicsEngine:
             validate_activations(self.state.x, self.graph.all_nodes)
             
             stats = self.state.get_stats()
+            
+            # ✅ Add biological stats
+            avg_adaptation = np.mean(self.adaptation[self.adaptation > 0.01])
+            avg_resources = np.mean(self.synaptic_resources)
+            
             print(f"  Active nodes: {stats['active_nodes']}/{self.graph.num_nodes}")
             print(f"  Max activation: {stats['max_activation']:.3f}")
             print(f"  Hebbian edges: {stats['hebbian_edges']}")
+            print(f"  Avg adaptation: {avg_adaptation:.3f}")
+            print(f"  Avg synaptic resources: {avg_resources:.3f}")
             
             t = t_next
         
@@ -295,6 +371,8 @@ class DynamicsEngine:
             'macrosteps': macrostep_count,
             'elapsed_time': elapsed,
             'final_state': self.state.x.copy(),
+            'final_adaptation': self.adaptation.copy(),
+            'final_resources': self.synaptic_resources.copy(),
             'trajectory_times': np.array(self.trajectory_times),
             'trajectory_states': np.array(self.trajectory_states).T,
             'final_stats': self.state.get_stats()

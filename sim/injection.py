@@ -51,8 +51,8 @@ class QueryInjector:
         self.kg = graph_loader.kg  # Access to knowledge graph for mention_count
     
     def inject_query(self, query: str, state, 
-                    default_strength: float = 1.0,
-                    use_importance_weighting: bool = True) -> Dict:
+                default_strength: float = 1.0,
+                use_importance_weighting: bool = True) -> Dict:
         """
         Parse query and inject external input into simulation state.
         
@@ -88,12 +88,12 @@ class QueryInjector:
         categories_injected = 0
         injection_details = []
         
-        # Inject entities (if they exist in graph)
+        # Inject entities ONLY IF THEY EXIST (no graph modification!)
         for entity_name in entities:
             entity_id = self._normalize_entity_name(entity_name)
             
+            # CRITICAL: Only inject if entity exists in frozen graph
             if entity_id in self.graph_loader.node_to_idx:
-                # Entity exists in graph - inject directly
                 idx = self.graph_loader.node_to_idx[entity_id]
                 
                 # Calculate injection strength
@@ -112,7 +112,9 @@ class QueryInjector:
                 })
                 print(f"  ✓ Injected entity: {entity_name} (strength={strength:.3f})")
             else:
-                print(f"  ✗ Entity not in graph: {entity_name} (will use categories)")
+                # Entity doesn't exist - this is NORMAL and OK
+                # The category injection will handle the semantic meaning
+                print(f"  ○ Entity not in graph: {entity_name} (semantic captured by categories)")
         
         # Inject categories (always inject, weighted by LLM confidence)
         for category, confidence in categories.items():
